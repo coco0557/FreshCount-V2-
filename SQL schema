@@ -1,0 +1,365 @@
+-- ============================================================
+-- FreshCount V2 — Database Schema + Seed Data
+--
+-- Core tables: categories, suppliers, stock_items, supplier_items,
+--              stock_movements
+-- Optional future tables: users, stocktake_sessions
+--
+-- Key change from V1 schema:
+--   • supplier_id removed from stock_items
+--   • New supplier_items join table — one item can have multiple
+--     suppliers, each with their own SKU, pack size, and product name
+--   • is_preferred flags the default supplier per item
+--     (owner can override via dropdown on the restock page)
+--
+-- All quantities seeded at 0. Run a stocktake after launch to fill in
+-- current_quantity, low_stock_threshold, and unit_of_measure.
+-- Supplier mappings deferred pending data collection from owner.
+-- ============================================================
+
+-- Optional: create and use database
+-- CREATE DATABASE freshcount_db;
+-- USE freshcount_db;
+
+-- ============================================================
+-- Drop tables if re-running script
+-- Order matters: drop children before parents
+-- ============================================================
+
+DROP TABLE IF EXISTS stock_movements;
+DROP TABLE IF EXISTS supplier_items;
+DROP TABLE IF EXISTS stock_items;
+DROP TABLE IF EXISTS stocktake_sessions;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS suppliers;
+DROP TABLE IF EXISTS categories;
+
+-- ============================================================
+-- Categories
+-- ============================================================
+
+CREATE TABLE categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Suppliers
+-- ============================================================
+
+CREATE TABLE suppliers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    phone VARCHAR(30),
+    email VARCHAR(100),
+    website VARCHAR(255),
+    notes VARCHAR(255),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Stock Items
+-- Note: no supplier_id column. Supplier links live in supplier_items.
+-- ============================================================
+
+CREATE TABLE stock_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    category_id INT NOT NULL,
+    current_quantity DECIMAL(10,2) NOT NULL DEFAULT 0,
+    low_stock_threshold DECIMAL(10,2) DEFAULT NULL,
+    unit_of_measure VARCHAR(20) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_stock_items_category
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT uq_stock_item_name_category
+        UNIQUE (name, category_id)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Supplier Items (join table)
+-- One stock item can be supplied by multiple suppliers.
+-- Each pairing carries its own SKU, pack size, and (optionally) the
+-- name the supplier uses on their site/invoice.
+-- ============================================================
+
+CREATE TABLE supplier_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stock_item_id INT NOT NULL,
+    supplier_id INT NOT NULL,
+    supplier_sku VARCHAR(80) NOT NULL,
+    supplier_product_name VARCHAR(200),
+    pack_size VARCHAR(50),
+    is_preferred BOOLEAN NOT NULL DEFAULT FALSE,
+    notes VARCHAR(255),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_supplier_items_item
+        FOREIGN KEY (stock_item_id) REFERENCES stock_items(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_supplier_items_supplier
+        FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+
+    -- Same item can't be linked to the same supplier twice
+    CONSTRAINT uq_item_supplier UNIQUE (stock_item_id, supplier_id)
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Stock Movements
+-- Records every stock change: delivery, usage, waste, adjustment, initial
+-- ============================================================
+
+CREATE TABLE stock_movements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stock_item_id INT NOT NULL,
+    change_qty DECIMAL(10,2) NOT NULL,
+    movement_type ENUM('delivery','usage','waste','adjustment','initial') NOT NULL,
+    occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    note VARCHAR(255),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_stock_movements_item
+        FOREIGN KEY (stock_item_id) REFERENCES stock_items(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Optional Future Table: Users
+-- Useful later if you add staff login or manager login
+-- ============================================================
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('manager','staff') NOT NULL DEFAULT 'staff',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Optional Future Table: Stocktake Sessions
+-- Useful later for weekly stocktakes
+-- ============================================================
+
+CREATE TABLE stocktake_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stocktake_date DATE NOT NULL,
+    note VARCHAR(255),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- Indexes
+-- ============================================================
+
+CREATE INDEX idx_stock_items_name           ON stock_items(name);
+CREATE INDEX idx_stock_items_category       ON stock_items(category_id);
+CREATE INDEX idx_supplier_items_item        ON supplier_items(stock_item_id);
+CREATE INDEX idx_supplier_items_supplier    ON supplier_items(supplier_id);
+CREATE INDEX idx_supplier_items_sku         ON supplier_items(supplier_sku);
+CREATE INDEX idx_supplier_items_preferred   ON supplier_items(is_preferred);
+CREATE INDEX idx_stock_movements_item       ON stock_movements(stock_item_id);
+CREATE INDEX idx_stock_movements_date       ON stock_movements(occurred_at);
+CREATE INDEX idx_stock_movements_type       ON stock_movements(movement_type);
+
+-- ============================================================
+-- Insert Categories
+-- ============================================================
+
+INSERT INTO categories (name) VALUES
+('Meat & Seafood'),
+('Vegetables & Fresh Produce'),
+('Prepared Frozen Items'),
+('Noodles & Rice'),
+('Canned & Jarred Goods'),
+('Spices & Seasonings'),
+('Sauces & Condiments'),
+('Colouring & Additives'),
+('Flour & Baking'),
+('Packaging'),
+('Cleaning Supplies');
+
+-- ============================================================
+-- Insert Suppliers
+-- ============================================================
+
+INSERT INTO suppliers (name) VALUES
+('Makro'),
+('Booker'),
+('Bath Wholesale'),
+('Wai Yee Hong');
+
+-- ============================================================
+-- Category Variables
+-- ============================================================
+
+SET @cat_meat       = (SELECT id FROM categories WHERE name = 'Meat & Seafood');
+SET @cat_veg        = (SELECT id FROM categories WHERE name = 'Vegetables & Fresh Produce');
+SET @cat_frozen     = (SELECT id FROM categories WHERE name = 'Prepared Frozen Items');
+SET @cat_noodles    = (SELECT id FROM categories WHERE name = 'Noodles & Rice');
+SET @cat_canned     = (SELECT id FROM categories WHERE name = 'Canned & Jarred Goods');
+SET @cat_spices     = (SELECT id FROM categories WHERE name = 'Spices & Seasonings');
+SET @cat_sauces     = (SELECT id FROM categories WHERE name = 'Sauces & Condiments');
+SET @cat_colouring  = (SELECT id FROM categories WHERE name = 'Colouring & Additives');
+SET @cat_flour      = (SELECT id FROM categories WHERE name = 'Flour & Baking');
+SET @cat_packaging  = (SELECT id FROM categories WHERE name = 'Packaging');
+SET @cat_cleaning   = (SELECT id FROM categories WHERE name = 'Cleaning Supplies');
+
+-- ============================================================
+-- Stock Items
+-- current_quantity defaults to 0
+-- low_stock_threshold and unit_of_measure to be filled in later
+-- supplier links to be added via supplier_items once mapping is known
+-- ============================================================
+
+-- Meat & Seafood
+INSERT INTO stock_items (name, category_id) VALUES
+('Chicken breast (TDH)', @cat_meat),
+('Cooked chicken (C Vale)', @cat_meat),
+('Spare rib meat (Ho Wan)', @cat_meat),
+('Pork neck (13.6kg)', @cat_meat),
+('Duck 2.6 county', @cat_meat),
+('Cooked duck breast', @cat_meat),
+('King prawn (31/40)', @cat_meat),
+('Squid tubes', @cat_meat),
+('Crabmeat', @cat_meat),
+('Shrimp (100/200)', @cat_meat),
+('Scallop', @cat_meat);
+
+-- Vegetables & Fresh Produce
+INSERT INTO stock_items (name, category_id) VALUES
+('Pak choi', @cat_veg),
+('Baby corn cob', @cat_veg),
+('Spring onion (big heads)', @cat_veg),
+('Bamboo strip (small thin)', @cat_veg),
+('Beansprouts', @cat_veg),
+('Garlic flake', @cat_veg),
+('Ginger', @cat_veg),
+('Peas', @cat_veg);
+
+-- Prepared Frozen Items
+INSERT INTO stock_items (name, category_id) VALUES
+('Pork gyoza', @cat_frozen),
+('Veg gyoza', @cat_frozen),
+('Chicken gyoza', @cat_frozen),
+('Veg spring roll', @cat_frozen),
+('Wonton pastry (Happy Boy)', @cat_frozen),
+('Breaded torpedo KP', @cat_frozen),
+('Duck skin (pancake)', @cat_frozen);
+
+-- Noodles & Rice
+INSERT INTO stock_items (name, category_id) VALUES
+('Rice', @cat_noodles),
+('Noodle (Lucky Boat)', @cat_noodles),
+('Udon', @cat_noodles),
+('Rice sticks (Kong Moon)', @cat_noodles),
+('Vietnamese rice paper', @cat_noodles),
+('Rice stick ban pho (30Bx454G)', @cat_noodles);
+
+-- Canned & Jarred Goods
+INSERT INTO stock_items (name, category_id) VALUES
+('Chinese shredded radish (tin)', @cat_canned),
+('Cream style corn', @cat_canned),
+('Lychees', @cat_canned),
+('Pineapple pieces (L)', @cat_canned),
+('Water chestnut', @cat_canned),
+('Straw mushrooms (½)', @cat_canned),
+('Poku mushrooms', @cat_canned),
+('Group fried fish', @cat_canned);
+
+-- Spices & Seasonings
+INSERT INTO stock_items (name, category_id) VALUES
+('MSG (L)', @cat_spices),
+('Bay leaves', @cat_spices),
+('Ground white pepper', @cat_spices),
+('White sugar', @cat_spices),
+('Salt (L)', @cat_spices),
+('Yellow ginger powder', @cat_spices),
+('Curry powder (10kg)', @cat_spices),
+('Red curry paste', @cat_spices),
+('Green curry paste', @cat_spices),
+('Wah Loong mixed spice', @cat_spices),
+('Food soda', @cat_spices),
+('Star anise', @cat_spices),
+('Cinnamon sticks', @cat_spices);
+
+-- Sauces & Condiments
+INSERT INTO stock_items (name, category_id) VALUES
+('Black bean sauce', @cat_sauces),
+('Sweet chilli sauce (L)', @cat_sauces),
+('Sesame oil (L)', @cat_sauces),
+('White vinegar', @cat_sauces),
+('Brown vinegar (5L)', @cat_sauces),
+('Coconut milk', @cat_sauces),
+('Coconut cream', @cat_sauces),
+('Jimmy satay sauce', @cat_sauces),
+('Hoi sin sauce', @cat_sauces),
+('Yellow bean sauce', @cat_sauces),
+('Hot bean sauce (YEO)', @cat_sauces),
+('Worcester sauce', @cat_sauces),
+('Oyster sauce', @cat_sauces),
+('Oyster sauce (GF)', @cat_sauces),
+('HP sauce', @cat_sauces),
+('Ketchup', @cat_sauces),
+('Light soy sauce', @cat_sauces),
+('Light soy sauce (GF)', @cat_sauces),
+('Dark soy sauce', @cat_sauces),
+('Satay sticks (box, Binch)', @cat_sauces);
+
+-- Colouring & Additives
+INSERT INTO stock_items (name, category_id) VALUES
+('Orange food colouring', @cat_colouring),
+('Yellow food colouring', @cat_colouring),
+('Red food colouring', @cat_colouring);
+
+-- Flour & Baking
+INSERT INTO stock_items (name, category_id) VALUES
+('Corn flour', @cat_flour),
+('Self-raising flour', @cat_flour),
+('Potato starch', @cat_flour);
+
+-- Packaging
+INSERT INTO stock_items (name, category_id) VALUES
+('No. 2 container (qty 1000)', @cat_packaging),
+('M12 SATCO', @cat_packaging),
+('Packit 500', @cat_packaging),
+('Packit 650', @cat_packaging),
+('4oz clear cup (Satso)', @cat_packaging),
+('7oz clear cup (Satso)', @cat_packaging),
+('Greaseproof bags (10x10)', @cat_packaging),
+('Greaseproof bags (7x7)', @cat_packaging),
+('White counter bags (10x12)', @cat_packaging);
+
+-- Cleaning Supplies
+INSERT INTO stock_items (name, category_id) VALUES
+('Scouring pads (thick)', @cat_cleaning);
+
+-- ============================================================
+-- Quick Check
+-- Should return:
+--   11 categories
+--    4 suppliers
+--   89 stock items
+--    0 supplier_items rows (to be populated as mapping is collected)
+-- ============================================================
+
+SELECT
+    (SELECT COUNT(*) FROM categories)      AS category_count,
+    (SELECT COUNT(*) FROM suppliers)       AS supplier_count,
+    (SELECT COUNT(*) FROM stock_items)     AS item_count,
+    (SELECT COUNT(*) FROM supplier_items)  AS supplier_item_links;
