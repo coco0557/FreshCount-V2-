@@ -28,3 +28,21 @@ sequence:
 7. FreshCount generates one PDF per supplier
 8. PDFs can be printed, emailed, or saved
 9. When delivery arrives, stock quantities are updated
+
+10. Stocktake / stock levels
+        ↓
+Low-stock detection
+        ↓
+Restock basket
+        ↓
+Preferred supplier grouping
+        ↓
+Owner review + supplier override
+        ↓
+Confirm restock order
+        ↓
+Generate separate supplier PDFs
+        ↓
+Delivery arrives
+        ↓
+Update stock movements
