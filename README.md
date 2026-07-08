@@ -17,3 +17,14 @@ or click the item then it adds it to the pdf for that supplier,
 the pdf generated can use the specific SKU from that supplier for those specific items
 
 this means the database would have to change so that the SKU links with the direct supplier
+
+sequence:
+1. Staff/owner completes stocktake
+2. FreshCount checks low-stock items
+3. System groups items by preferred supplier
+4. Owner reviews the order
+5. Owner can override supplier if needed
+6. System confirms restock order
+7. FreshCount generates one PDF per supplier
+8. PDFs can be printed, emailed, or saved
+9. When delivery arrives, stock quantities are updated
