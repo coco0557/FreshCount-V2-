@@ -1,7 +1,5 @@
 # FreshCount-V2-
 
-"I gathered user feedback from a fast-paced restaurant environment. Recognizing tech-literacy barriers in users in their 60s and high inventory turnover, I pivoted the architecture from a passive tracker to an active, low-friction digital procurement tool, reducing ordering administrative overhead for the business owner."
-
 Restaurant supplier ordering platform, refactoring V1 inventory tracker into a Spring Boot + MySQL system that routes orders to multiple wholesalers
 
 i will be moving FreshCount from a snanner system, rather than just displayig the item list, whatever the command was, it will now act as a reordering system which can place the orderers for the business owner, essencially a supplier ordering platform or restaurants.
