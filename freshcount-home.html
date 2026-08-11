@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>FreshCount — Home</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1a1830; --panel:#12101f; --card:#f6f4ef; --card-line:#e3ddce;
+    --ink:#171512; --ink-soft:#6b6357; --indigo:#5B2CFF; --indigo-deep:#4520cc;
+    --green:#2f8f4e; --green-deep:#236e3c; --steel:#2a2740; --steel-line:#3a3556;
+  }
+  html,body{height:100%}
+  body{background:var(--bg);font-family:'Poppins',system-ui,sans-serif;color:#eef0f2;
+    -webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;}
+  .num{font-variant-numeric:tabular-nums;}
+  a{text-decoration:none;color:inherit;}
+  .cta{background:var(--indigo);box-shadow:0 7px 0 var(--indigo-deep);}
+  .cta:active{transform:translateY(4px);box-shadow:0 3px 0 var(--indigo-deep);}
+  .tile{background:var(--card);color:var(--ink);border:1px solid var(--card-line);
+    border-radius:18px;box-shadow:0 5px 0 rgba(0,0,0,.28);}
+  .tile:active{transform:translateY(2px);box-shadow:0 3px 0 rgba(0,0,0,.28);}
+  .usual{background:#ece6ff;color:var(--indigo-deep);border:1px solid #d6caff;}
+  .rowcard{background:var(--steel);border:1px solid var(--steel-line);}
+  .rowcard:active{transform:translateY(1px);}
+  .pagelink{background:var(--steel);color:#c7ccd3;border:1px solid var(--steel-line);
+    font-weight:600;border-radius:10px;padding:10px 16px;font-size:14px;line-height:1;white-space:nowrap;}
+  .pagelink[aria-current="page"]{background:var(--indigo);color:#fff;border-color:var(--indigo);}
+  .pagelink:active{transform:translateY(1px);}
+  :focus-visible{outline:3px solid #b9a5ff;outline-offset:2px;}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <header class="bg-[var(--panel)] border-b border-[var(--steel-line)] px-5 pt-5 pb-4">
+    <div class="flex items-center justify-between gap-4 max-w-5xl mx-auto w-full">
+      <a href="freshcount-home.html" class="flex-none">
+        <div class="font-bold text-2xl leading-none"><span style="color:var(--indigo)">Fresh</span>Count</div>
+        <div class="text-[13px] text-[#9aa1aa] mt-1">Hao Wei · Kitchen</div>
+      </a>
+      <nav class="flex items-center gap-2 overflow-x-auto" aria-label="Pages">
+        <a href="freshcount-home.html" class="pagelink" aria-current="page">Home</a>
+        <a href="freshcount-restock-sheet-v2.html" class="pagelink">Restock</a>
+        <a href="freshcount-review.html" class="pagelink">Review</a>
+      </nav>
+      <div class="text-right leading-tight flex-none">
+        <div class="num text-xl font-semibold" id="today">Tue 21 Jul</div>
+        <div class="text-[13px] text-[#9aa1aa]" id="greeting">Good morning</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-6 max-w-5xl mx-auto w-full">
+
+    <!-- Primary action -->
+    <a href="freshcount-restock-sheet-v2.html" class="cta rounded-3xl px-7 py-8 flex items-center justify-between gap-4 block">
+      <div>
+        <div class="text-white/80 text-sm font-medium tracking-wide uppercase">Start a</div>
+        <div class="text-white text-4xl font-bold leading-none mt-1">Restock</div>
+        <div class="text-white/80 text-[15px] mt-2">Walk the kitchen, tap what's low</div>
+      </div>
+      <svg class="w-14 h-14 text-white flex-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+
+    <!-- Usually needed -->
+    <section class="mt-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Usually needed</h2>
+        <span class="text-[13px] text-[#9aa1aa]">The regulars — tap to jump in</span>
+      </div>
+      <div id="usual" class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));"></div>
+    </section>
+
+    <!-- Recent orders -->
+    <section class="mt-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Recent orders</h2>
+      </div>
+      <div id="recent" class="grid gap-3"></div>
+    </section>
+
+  </main>
+
+<script>
+  const usual = [
+    { name:"Chicken Thigh",  cat:"Meat & Seafood", last:"2026-07-18" },
+    { name:"Chicken Breast", cat:"Meat & Seafood", last:"2026-07-18" },
+    { name:"King Prawns",    cat:"Meat & Seafood", last:"2026-07-04" },
+    { name:"Jasmine Rice",   cat:"Noodles & Rice", last:"2026-07-15" },
+    { name:"Light Soy Sauce",cat:"Sauces",         last:"2026-07-11" },
+    { name:"Spring Onions",  cat:"Vegetables",     last:"2026-07-19" },
+  ];
+  const recent = [
+    { date:"2026-07-18", lines:14, suppliers:3 },
+    { date:"2026-07-15", lines:9,  suppliers:2 },
+    { date:"2026-07-11", lines:12, suppliers:3 },
+  ];
+
+  const daysAgo = iso => {
+    const d = Math.round((Date.now() - new Date(iso)) / 86400000);
+    return d<=0?"today":d===1?"yesterday":d<14?d+" days ago":Math.floor(d/7)+" weeks ago";
+  };
+  const fmt = iso => new Date(iso).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+
+  document.getElementById('usual').innerHTML = usual.map(u => `
+    <a href="freshcount-restock-sheet-v2.html" class="tile p-4 flex flex-col gap-2 block">
+      <div class="flex items-start justify-between gap-2">
+        <span class="font-semibold text-lg leading-tight">${u.name}</span>
+        <span class="usual text-[10px] font-semibold rounded-full px-2 py-0.5 whitespace-nowrap">Regular</span>
+      </div>
+      <span class="text-[13px]" style="color:var(--ink-soft)">${u.cat}</span>
+      <span class="text-[12px]" style="color:var(--ink-soft)">Last ordered ${daysAgo(u.last)}</span>
+    </a>`).join('');
+
+  document.getElementById('recent').innerHTML = recent.map(r => `
+    <a href="freshcount-review.html" class="rowcard rounded-2xl px-5 py-4 flex items-center justify-between gap-4 block">
+      <div>
+        <div class="num font-semibold text-lg">${fmt(r.date)}</div>
+        <div class="text-[13px] text-[#9aa1aa]">${r.lines} lines · ${r.suppliers} suppliers</div>
+      </div>
+      <svg class="w-6 h-6 text-[#9aa1aa]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </a>`).join('');
+
+  const now = new Date();
+  document.getElementById('today').textContent = fmt(now);
+  const h = now.getHours();
+  document.getElementById('greeting').textContent = h<12?"Good morning":h<17?"Good afternoon":"Good evening";
+</script>
+</body>
+</html>

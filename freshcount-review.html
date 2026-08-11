@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>FreshCount — Review Order</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1a1830; --panel:#12101f; --card:#f6f4ef; --card-line:#e3ddce;
+    --ink:#171512; --ink-soft:#6b6357; --indigo:#5B2CFF; --indigo-deep:#4520cc;
+    --green:#2f8f4e; --green-deep:#236e3c; --steel:#2a2740; --steel-line:#3a3556;
+  }
+  html,body{height:100%}
+  body{background:var(--bg);font-family:'Poppins',system-ui,sans-serif;color:#eef0f2;
+    -webkit-tap-highlight-color:transparent;}
+  .num{font-variant-numeric:tabular-nums;}
+  a{text-decoration:none;color:inherit;}
+  .panel{background:var(--card);color:var(--ink);border:1px solid var(--card-line);
+    border-radius:20px;box-shadow:0 6px 0 rgba(0,0,0,.28);overflow:hidden;}
+  .codechip{background:#ece6ff;color:var(--indigo-deep);border:1px solid #d6caff;
+    font-variant-numeric:tabular-nums;}
+  .btn{font-weight:600;letter-spacing:.02em;}
+  .btn-primary{background:var(--indigo);color:#fff;box-shadow:0 6px 0 var(--indigo-deep);}
+  .btn-primary:active{transform:translateY(3px);box-shadow:0 3px 0 var(--indigo-deep);}
+  .btn-ghost{background:var(--steel);color:#fff;border:1px solid var(--steel-line);box-shadow:0 6px 0 #0d0b16;}
+  .btn-ghost:active{transform:translateY(3px);box-shadow:0 3px 0 #0d0b16;}
+  .copybtn{background:var(--indigo-deep);color:#fff;}
+  .copybtn:active{transform:translateY(1px);}
+  .sheet{background:#211d3a;color:#e7e4ff;font-family:ui-monospace,'SF Mono',Menlo,monospace;}
+  .pagelink{background:var(--steel);color:#c7ccd3;border:1px solid var(--steel-line);
+    font-weight:600;border-radius:10px;padding:10px 16px;font-size:14px;line-height:1;white-space:nowrap;}
+  .pagelink[aria-current="page"]{background:var(--indigo);color:#fff;border-color:var(--indigo);}
+  .pagelink:active{transform:translateY(1px);}
+  :focus-visible{outline:3px solid #b9a5ff;outline-offset:2px;}
+  @media print{
+    body{background:#fff;color:#000;}
+    .noprint{display:none!important;}
+    .panel{box-shadow:none;border:1px solid #ccc;}
+  }
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <header class="bg-[var(--panel)] border-b border-[var(--steel-line)] px-5 pt-5 pb-4 noprint">
+    <div class="flex items-center justify-between gap-4 max-w-4xl mx-auto w-full">
+      <a href="freshcount-home.html" class="flex-none">
+        <div class="font-bold text-xl leading-none"><span style="color:var(--indigo)">Fresh</span>Count</div>
+        <div class="text-[13px] text-[#9aa1aa] mt-0.5">Review order</div>
+      </a>
+      <nav class="flex items-center gap-2 overflow-x-auto" aria-label="Pages">
+        <a href="freshcount-home.html" class="pagelink">Home</a>
+        <a href="freshcount-restock-sheet-v2.html" class="pagelink">Restock</a>
+        <a href="freshcount-review.html" class="pagelink" aria-current="page">Review</a>
+      </nav>
+      <div class="text-right leading-tight flex-none">
+        <div class="num text-lg font-semibold" id="today">Tue 21 Jul</div>
+        <div class="text-[13px] text-[#9aa1aa]"><span id="lineTotal">0</span> lines · <span id="supTotal">0</span> suppliers</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 px-5 py-6 pb-40 max-w-4xl mx-auto w-full">
+    <div id="orders" class="flex flex-col gap-6"></div>
+  </main>
+
+  <!-- Action bar -->
+  <footer class="fixed bottom-0 inset-x-0 bg-[var(--panel)] border-t border-[var(--steel-line)] px-5 py-4 noprint"
+          style="padding-bottom:calc(1rem + env(safe-area-inset-bottom));">
+    <div class="max-w-4xl mx-auto flex items-center gap-3">
+      <a href="freshcount-restock-sheet-v2.html" class="btn btn-ghost rounded-2xl px-5 py-4 text-lg">Back</a>
+      <button onclick="window.print()" class="btn btn-ghost rounded-2xl px-5 py-4 text-lg flex-1">Print</button>
+      <button id="downloadPdf" class="btn btn-primary rounded-2xl px-6 py-4 text-lg flex-1">Download PDF</button>
+    </div>
+  </footer>
+
+<script>
+  // Sample compiled order — the shape OrderController returns as JSON.
+  const orders = [
+    { supplier:"Booker", orderedByCode:true, lines:[
+      { code:"400700", qty:3, name:"Coca Cola Original NRB", pack:"24 330ml", dept:"Retail Grocery" },
+      { code:"181801", qty:3, name:"KTC Veg Oil Soya BIB",   pack:"1 20ltr",  dept:"Catering Grocery" },
+      { code:"303956", qty:5, name:"CM Straight Cut 10mm Chips", pack:"4 2.5kg", dept:"Frozen Food" },
+      { code:"219474", qty:3, name:"FF Peeled Garlic",       pack:"1 1kg",   dept:"Fruit & Veg" },
+    ]},
+    { supplier:"Makro", orderedByCode:false, lines:[
+      { qty:2, name:"Pork Belly",   pack:"per case" },
+      { qty:1, name:"Beef, sliced", pack:"5 kg" },
+      { qty:1, name:"Pork Mince",   pack:"5 kg" },
+    ]},
+    { supplier:"Wai Yee Hong", orderedByCode:false, lines:[
+      { qty:4, name:"King Prawns",   pack:"1 kg bag" },
+      { qty:2, name:"Char Siu Pork", pack:"per case" },
+    ]},
+  ];
+
+  const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // Plain code-first text for a code-driven supplier — what the Copy button yields.
+  function typingSheet(o){
+    let out = o.supplier.toUpperCase() + " — order sheet\n";
+    let dept = null;
+    o.lines.forEach(l => {
+      const d = (l.dept||"OTHER").toUpperCase();
+      if(d!==dept){ out += "\n"+d+"\n"; dept=d; }
+      out += `${(l.code||"—").padEnd(8)} x${String(l.qty).padEnd(3)} ${l.name.padEnd(32)} ${l.pack}\n`;
+    });
+    return out;
+  }
+
+  function codeSection(o, idx){
+    const rows = o.lines.map(l => `
+      <div class="flex items-center gap-3 px-4 py-3 border-t" style="border-color:var(--card-line)">
+        <span class="codechip text-sm font-semibold rounded-lg px-2.5 py-1 whitespace-nowrap">${l.code||"—"}</span>
+        <span class="num font-bold text-lg w-10 text-center" style="color:var(--indigo)">×${l.qty}</span>
+        <span class="flex-1 font-medium">${esc(l.name)}</span>
+        <span class="text-sm" style="color:var(--ink-soft)">${esc(l.pack)}</span>
+      </div>`).join('');
+    return `
+      <div class="panel">
+        <div class="flex items-center justify-between gap-3 px-4 py-3" style="background:#efeaff">
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-xl" style="color:var(--indigo-deep)">${esc(o.supplier)}</span>
+            <span class="codechip text-[11px] font-semibold rounded-full px-2 py-0.5">Ordered by code</span>
+          </div>
+          <button class="copybtn btn rounded-xl px-4 py-2 text-sm noprint" data-copy="${idx}">Copy sheet</button>
+        </div>
+        <div class="px-4 pt-3 pb-1 text-[13px]" style="color:var(--ink-soft)">Type each code into the basket; qty and name are there to check against.</div>
+        ${rows}
+      </div>`;
+  }
+
+  function plainSection(o){
+    const rows = o.lines.map(l => `
+      <div class="flex items-center gap-3 px-4 py-3 border-t" style="border-color:var(--card-line)">
+        <span class="num font-bold text-lg w-10 text-center" style="color:var(--indigo)">×${l.qty}</span>
+        <span class="flex-1 font-medium">${esc(l.name)}</span>
+        <span class="text-sm" style="color:var(--ink-soft)">${esc(l.pack)}</span>
+      </div>`).join('');
+    return `
+      <div class="panel">
+        <div class="px-4 py-3" style="background:#f0ece2">
+          <span class="font-bold text-xl">${esc(o.supplier)}</span>
+        </div>
+        ${rows}
+      </div>`;
+  }
+
+  document.getElementById('orders').innerHTML =
+    orders.map((o,i) => o.orderedByCode ? codeSection(o,i) : plainSection(o)).join('');
+
+  document.getElementById('lineTotal').textContent = orders.reduce((a,o)=>a+o.lines.length,0);
+  document.getElementById('supTotal').textContent = orders.length;
+  document.getElementById('today').textContent =
+    new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+
+  // Copy-to-clipboard for the code-first sheets
+  document.getElementById('orders').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-copy]');
+    if(!btn) return;
+    const o = orders[+btn.dataset.copy];
+    try{
+      await navigator.clipboard.writeText(typingSheet(o));
+      const t = btn.textContent; btn.textContent = "Copied ✓";
+      setTimeout(()=>btn.textContent=t, 1500);
+    }catch{ alert(typingSheet(o)); }
+  });
+
+  // Generate a per-supplier PDF client-side (mirrors the on-screen order)
+    document.getElementById('downloadPdf').addEventListener('click', () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageH = doc.internal.pageSize.getHeight();
+      const left = 40, right = 555;
+      const indigo = [91, 44, 255];
+      const dateStr = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+
+      let y = 56;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(indigo[0], indigo[1], indigo[2]);
+      doc.text('FreshCount — Restock Order', left, y);
+      y += 20;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(110);
+      doc.text('Hao Wei · ' + dateStr, left, y);
+      y += 26;
+
+      const ensure = (needed) => { if (y + needed > pageH - 40) { doc.addPage(); y = 56; } };
+
+      orders.forEach(o => {
+        ensure(60);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20);
+        doc.text(o.supplier, left, y); y += 6;
+        doc.setDrawColor(220); doc.line(left, y, right, y); y += 16;
+
+        const code = o.orderedByCode;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(120);
+        if (code) { doc.text('CODE', left, y); doc.text('QTY', left + 70, y); doc.text('ITEM', left + 110, y); doc.text('PACK', 440, y); }
+        else { doc.text('QTY', left, y); doc.text('ITEM', left + 40, y); doc.text('PACK', 440, y); }
+        y += 14;
+
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(30);
+        o.lines.forEach(l => {
+          ensure(18);
+          if (code) {
+            doc.text(String(l.code || '—'), left, y);
+            doc.text('x' + l.qty, left + 70, y);
+            doc.text(String(l.name), left + 110, y, { maxWidth: 300 });
+            doc.text(String(l.pack || ''), 440, y);
+          } else {
+            doc.text('x' + l.qty, left, y);
+            doc.text(String(l.name), left + 40, y, { maxWidth: 360 });
+            doc.text(String(l.pack || ''), 440, y);
+          }
+          y += 18;
+        });
+        y += 14;
+      });
+
+      doc.save('freshcount-order-' + new Date().toISOString().slice(0, 10) + '.pdf');
+    });
+
+</script>
+</body>
+</html>
